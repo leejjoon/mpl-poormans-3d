@@ -1,5 +1,7 @@
 import bezier
 import numpy as np
+import matplotlib.colors as mcolors
+from matplotlib.patches import Polygon
 
 linearization_error = bezier.hazmat.geometric_intersection.linearization_error
 
@@ -134,3 +136,58 @@ def lines_to_normals(lines):
     nn = nn / ((nn**2).sum(axis=1)**.5)[:, np.newaxis]
     return nn  # , np.array(dd)
 
+def get_overlay_colors(ls, normals, facecolor, fraction=1.):
+    intensity = (ls.shade_normals(normals).reshape((-1, 1)) - 0.5) * fraction + 0.5
+    rgb = np.zeros((len(normals), 3))
+    rgb[:] = mcolors.to_rgb(facecolor)
+
+    rgb_overlayed = ls.blend_overlay(rgb, intensity)
+
+    return rgb_overlayed
+
+def path_to_simple_3d(p,
+                      displacement, error,
+                      refine_factor=0.5):
+    """
+    ls: lightsource
+    p, tr : path and transform
+    """
+    # displacement = [-0.05, -0.03]
+    # error = 0.001
+    # rr = []
+    rects = []
+    normals = []
+    projected = []
+    bb = mpl2bezier(p)
+
+    for b in bb:
+        # b = bb[1]
+        cc = linearize_bezier_list(b, error)
+
+        # long lines are divided for better z-ordering.
+        cc = refine(cc, np.power(displacement, 2).sum()**.5 * refine_factor)
+
+
+        # cc = np.array([ccx, ccy]).T
+        # ax.plot(cc[:, 0], cc[:, 1], "o")
+
+        cc2 = cc + displacement
+        # ax.plot(cc2[:, 0], cc2[:, 1], "ko", zorder=100)
+
+        pp = lines_to_rects(cc, cc2)
+        rects.append(pp)
+
+        nn = lines_to_normals(cc)
+        nnn = np.concatenate([nn, np.zeros(shape=(len(nn), 1),
+                                           dtype=nn.dtype)], axis=-1)
+        normals.append(nnn)
+
+        # mean
+        oo1 = np.dot(cc, displacement)
+        oo2 = np.dot(cc2, displacement)
+        # oo = np.sum([oo1[:-1], oo1[1:], oo2[:-1], oo2[1:]], axis=0)
+        oo = np.mean([oo1[:-1], oo1[1:], oo2[:-1], oo2[1:]], axis=0)
+        # oo = np.dot(cc[:-1], displacement)
+        projected.append(oo)
+
+    return rects, normals, projected
