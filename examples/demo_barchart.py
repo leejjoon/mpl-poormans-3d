@@ -3,51 +3,40 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from poormans_3d_demo import demo
+from mpl_poormans_3d import Poormans3d, Poormans3dFace
 
 import seaborn as sns
 df = sns.load_dataset("penguins")
 
-fig1, ax = plt.subplots(1, 1, num=1, clear=True, figsize=(4, 4))
+fig1, ax = plt.subplots(1, 1, num=1, clear=True, figsize=(5, 5))
 fig1.subplots_adjust(left=0.2)
 
 sns.barplot(data=df, x="island", y="body_mass_g", hue="sex", ax=ax)
 ax.set_xlim(-0.7, 2.7)
-ax.patch.set(fc="0.8", alpha=1)
-ax.legend_.remove()
-ax.set_title("Turn this ...")
-
-fig2, ax = plt.subplots(1, 1, num=2, clear=True, figsize=(4, 4))
-fig2.subplots_adjust(left=0.2)
-
-sns.barplot(data=df, x="island", y="body_mass_g", hue="sex", ax=ax)
-ax.set_xlim(-0.7, 2.7)
-ax.patch.set(fc="0.8", alpha=1)
-ax.legend_.remove()
-ax.set_title("to this.")
+ax.patch.set(fc="0.7", alpha=1)
+# ax.legend_.remove()
 
 # now we turn the figure into 3d.
+
+from matplotlib.colors import LightSource
+ls = LightSource(azdeg=105)
+ls2 = LightSource(azdeg=180 + 105)
+
 patch_list_bar = [p for p in ax.patches]
 for patch in patch_list_bar:
-    patch.set_visible(False)
-ax.patch.set_visible(False)
+    patch.set_path_effects([
+        Poormans3d(ls, (10, 5),
+                   fraction=0.3),
+        Poormans3dFace(ls, (0, 0)),
+    ])
 
-# outer box
-demo(ax, [ax.patch],
-     displacement=(15, 5),
-     transformed=True, clip_on=False,
-     draw_face=False, base_zorder=-20, face_location="back",
-     fraction=.7, azdeg=135)
-# inner box
-demo(ax, [ax.patch],
-     displacement=(15, 5),
-     transformed=True, clip_on=True,
-     draw_face=True, base_zorder=-20, face_location="back",
-     fraction=0.3, azdeg=315)
+from mpl_visual_context.patheffects import ClipPathSelf
 
-demo(ax, patch_list_bar,
-     displacement=(15, 5),
-     transformed=True, clip_on=True, base_zorder=-10,
-     azdeg=135, fraction=.5)
+ax.patch.set_path_effects([
+    Poormans3d(ls, (10, 5), fraction=0.3), # outer wall
+    ClipPathSelf() | Poormans3dFace(ls2, (10, 5), fraction=0.5),
+    ClipPathSelf() | Poormans3d(ls2, (10, 5),
+                                fraction=0.3), # inner wall
+])
 
 plt.show()
