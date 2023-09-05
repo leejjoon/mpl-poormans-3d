@@ -145,8 +145,9 @@ def get_overlay_colors(ls, normals, facecolor, fraction=1.):
 
     return rgb_overlayed
 
-def path_to_simple_3d(p,
-                      displacement, error,
+def path_to_simple_3d(p, error,
+                      displacement,
+                      displacement0 = 0,
                       refine_factor=0.5):
     """
     ls: lightsource
@@ -171,19 +172,20 @@ def path_to_simple_3d(p,
         # cc = np.array([ccx, ccy]).T
         # ax.plot(cc[:, 0], cc[:, 1], "o")
 
-        cc2 = cc + displacement
+        cc1 = cc + np.array(displacement0)
+        cc2 = cc + np.array(displacement)
         # ax.plot(cc2[:, 0], cc2[:, 1], "ko", zorder=100)
 
-        pp = lines_to_rects(cc, cc2)
+        pp = lines_to_rects(cc1, cc2)
         rects.append(pp)
 
-        nn = lines_to_normals(cc)
+        nn = lines_to_normals(cc1)
         nnn = np.concatenate([nn, np.zeros(shape=(len(nn), 1),
                                            dtype=nn.dtype)], axis=-1)
         normals.append(nnn)
 
         # mean
-        oo1 = np.dot(cc, displacement)
+        oo1 = np.dot(cc1, displacement)
         oo2 = np.dot(cc2, displacement)
         # oo = np.sum([oo1[:-1], oo1[1:], oo2[:-1], oo2[1:]], axis=0)
         oo = np.mean([oo1[:-1], oo1[1:], oo2[:-1], oo2[1:]], axis=0)

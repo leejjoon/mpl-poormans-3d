@@ -21,6 +21,7 @@ pie = ax.pie(frequency,
        counterclock=False,
        wedgeprops=dict(width=0.3)
        )
+
 patch_list = pie[0]
 for patch in patch_list:
     patch.set_visible(False)
@@ -39,6 +40,7 @@ p = PathPatch(tp, ec="none",
               clip_on=False,
               transform=ax.transData)
 # ax.add_artist(p)
+
 patch_list = [p]
 
 demo(ax, patch_list,
