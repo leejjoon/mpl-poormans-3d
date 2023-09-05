@@ -1,3 +1,9 @@
+"""
+====================
+Demo with bar chart
+====================
+"""
+
 import bezier
 import numpy as np
 
