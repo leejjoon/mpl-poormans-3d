@@ -1,3 +1,5 @@
+from itertools import cycle
+
 import numpy as np
 
 import matplotlib.colors as mcolors
@@ -118,21 +120,32 @@ class ArtistListWithPoormans3d(Artist):
     #     self._artist_list = artist_list
     #     self._pe = pe
 
-    def __init__(self, artist_list, *kl, **kwargs):
+    def __init__(self, artist_list, *kl, pe_chain=None, **kwargs):
         super().__init__()
         self._artist_list = artist_list
 
-        self._respect_child_patheffects = kwargs.pop("respect_child_patheffects", False)
+        # self._respect_child_patheffects = kwargs.pop("respect_child_patheffects", False)
         # set zorder
         self.set_zorder(min(a.get_zorder() for a in artist_list) - 0.01)
 
         self._poormans3d = Poormans3d(*kl, **kwargs)
+        self._pe_chain = pe_chain
+
+        # self._use_artist_pe = use_artist_pe
 
     def draw(self, renderer):
         catch = Catch()
-        for a in self._artist_list:
+
+        pe_chain_list = self._pe_chain
+        if pe_chain_list is None:
+            pe_chain_list = cycle([None])
+        elif isinstance(pe_chain_list, ChainablePathEffect):
+            pe_chain_list = cycle([pe_chain_list])
+
+        for a, pe_chain in zip(self._artist_list, pe_chain_list):
             pe0 = a.get_path_effects()
-            pe = pe0 + [catch] if self._respect_child_patheffects else [catch]
+            pe = [pe_chain | catch] if pe_chain else [catch]
+            # pe = pe0 + pe if self._respect_child_patheffects else pe
             a.set_path_effects(pe)
             a.draw(renderer)
             a.set_path_effects(pe0)
@@ -321,8 +334,11 @@ def get_3d_face(facecolor, p, tr, ls,
     tp2 = MPath(tp.vertices + face_displacement, codes=tp.codes)
 
     intensity = (ls.shade_normals(np.array([0, 0, 1])) - 0.5) * fraction + 0.5
-    rgb = np.clip(mcolors.to_rgb(facecolor), 0.2, 0.8)
-    rgb2 = ls.blend_overlay(rgb, intensity)
+    if facecolor is not None:
+        rgb = np.clip(mcolors.to_rgb(facecolor), 0.2, 0.8)
+        rgb2 = ls.blend_overlay(rgb, intensity)
+    else:
+        rgb2 = None
 
     return tp2, rgb2
 
