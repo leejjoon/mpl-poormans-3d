@@ -26,7 +26,7 @@ class Poormans3d(AbstractPathEffect):
     def __init__(
             self,
             lightsource,
-            displacement, displacement0=0, error=None,
+            displacement, displacement0=(0, 0), error=None,
             direction=1,
             fraction=0.5,
             refine_factor=10):
@@ -40,8 +40,12 @@ class Poormans3d(AbstractPathEffect):
         self.refine_factor = refine_factor
 
     def draw_path(self, renderer, gc, tpath, affine, rgbFace):
+        dpi_cor = renderer.points_to_pixels(1)
         col = get_3d(rgbFace, tpath, affine, self.lightsource,
-                     self.displacement, displacement0=self.displacement0,
+                     [self.displacement[0]*dpi_cor,
+                      self.displacement[1]*dpi_cor],
+                     displacement0=[self.displacement0[0]*dpi_cor,
+                                    self.displacement0[1]*dpi_cor],
                      error=self.error,
                      direction=self.direction,
                      fraction=self.fraction,
@@ -77,10 +81,12 @@ class Poormans3dFace(ChainablePathEffect):
         tr = mtransforms.IdentityTransform()
         facecolor = rgbFace
 
+        dpi_cor = renderer.points_to_pixels(1)
+
         displacement = np.array(self.displacement)
 
         tp2, rgb2 = get_3d_face(facecolor, tp, tr, self.lightsource,
-                                displacement=displacement,
+                                displacement=displacement*dpi_cor,
                                 fraction=self.fraction)
 
         return renderer, gc, tp2, tr, rgb2
@@ -134,12 +140,14 @@ class ArtistListWithPoormans3d(Artist):
         p3d = self._poormans3d
         projected_dists, polys, colors = [], [], []
 
+        dpi_cor = renderer.points_to_pixels(1)
+
         for _, tpath, affine, rgbFace in catch.get_catched():
 
             projected_dists1, polys1, colors1 = _get_3d(
                 rgbFace, tpath, affine, p3d.lightsource,
-                p3d.displacement,
-                displacement0=p3d.displacement0,
+                np.array(p3d.displacement)*dpi_cor,
+                displacement0=np.array(p3d.displacement0)*dpi_cor,
                 error=p3d.error,
                 direction=p3d.direction,
                 fraction=p3d.fraction,
