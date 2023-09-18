@@ -22,6 +22,8 @@ class SkewedLabel:
         angle_x = np.arctan2(x1 - x0, y1 - y0) / np.pi * 180
         angle_y = np.arctan2(x2 - x0, y2 - y0) / np.pi * 180
 
+        self.angle_x = -angle_x + 90
+        self.angle_y = -angle_y + 90
         self.shear = (angle_y - angle_x - 90)
         # self.yShear = (angle_y - angle_x - 90)
 
