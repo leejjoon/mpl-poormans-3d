@@ -6,7 +6,12 @@
 
 # Must import __version__ first to avoid errors importing this file during the build process.
 # See https://github.com/pypa/setuptools/issues/1724#issuecomment-627241822
+
+__all__ = ["Poormans3d", "Poormans3dFace",
+           "BarToPrism", "BarToCylinder"]
+
 from ._version import __version__
 
 from .poormans_3d import Poormans3d, Poormans3dFace
+from .prism_3d import BarToPrism, BarToCylinder
 

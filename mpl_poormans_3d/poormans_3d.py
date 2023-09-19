@@ -19,7 +19,7 @@ from matplotlib.collections import PolyCollection # as _PolyCollection
 from mpl_visual_context.patheffects_base import ChainablePathEffect
 
 
-class Figure:
+class FigureDpi72:
     def __init__(self):
         self.dpi = 72
 
@@ -62,7 +62,7 @@ class Poormans3d(AbstractPathEffect):
             col.set_clip_box(clip_rect)
             col.set_clip_path(clip_path, tr)
 
-        col.figure = Figure()  # draw method require self.figure.dpi. The value
+        col.figure = FigureDpi72()  # draw method require self.figure.dpi. The value
                                # does not matter unless size is set.
         col.draw(renderer)
 
@@ -188,7 +188,7 @@ class ArtistListWithPoormans3d(Artist):
         #     col.set_clip_box(clip_rect)
         #     col.set_clip_path(clip_path, tr)
 
-        pc.figure = Figure()  # draw method require self.figure.dpi. The value
+        pc.figure = FigureDpi72()  # draw method require self.figure.dpi. The value
                                # does not matter unless size is set.
         pc.draw(renderer)
 
