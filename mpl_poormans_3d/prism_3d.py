@@ -31,8 +31,6 @@ class PrismBase(Poormans3d):
 
         surface, surface_affine = self.get_surface(width, height)
         surface_affine_top = surface_affine.translate(0, 1)
-        # ellipse_affine_bottom = (Affine2D().translate(1, 0)
-        #                          .scale(0.5, 0.5*bar_ratio*self.ratio))
 
         return surface, surface_affine_top + affine, height_vector
 
@@ -64,7 +62,11 @@ class PrismBase(Poormans3d):
         tp2, rgb2 = get_3d_face(rgbFace, surface, affine, self.lightsource,
                                 displacement=[0, 0],
                                 fraction=self.fraction)
+        # We need the stroke of the face to hide some of the stoke from get_3d.
+        gc.set_linewidth(1)
+        gc.set_foreground(rgb2)
         renderer.draw_path(gc, tp2, tr, rgb2)
+
 
 class BarToPrism(PrismBase):
     def __init__(self, lightsource, numVertices, ratio=0.4, scale=1,

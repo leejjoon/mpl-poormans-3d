@@ -62,8 +62,8 @@ class Poormans3d(AbstractPathEffect):
             col.set_clip_box(clip_rect)
             col.set_clip_path(clip_path, tr)
 
-        col.figure = FigureDpi72()  # draw method require self.figure.dpi. The value
-                               # does not matter unless size is set.
+        col.figure = FigureDpi72()  # draw method require self.figure.dpi. The
+                                    # value does not matter unless size is set.
         col.draw(renderer)
 
 
@@ -90,7 +90,9 @@ class Poormans3dFace(ChainablePathEffect):
         tp2, rgb2 = get_3d_face(facecolor, tp, tr, self.lightsource,
                                 displacement=displacement*dpi_cor,
                                 fraction=self.fraction)
-
+        # We need the stroke of the face to hide some of the stoke from get_3d.
+        gc.set_linewidth(1)
+        gc.set_foreground(rgb2)
         return renderer, gc, tp2, tr, rgb2
 
 
@@ -258,7 +260,11 @@ def get_3d(facecolor, p, tr, ls,
                                                    range(len(polys)), colors))]
 
     tr = mtransforms.IdentityTransform()
+    # we need to have lines stroked, otherwise you will se boundaries between
+    # polygons. Another approach would be draw a separate lines for the
+    # touching boundaries between polygons.
     pc = PolyCollection(poly_sorted, closed=True, transform=tr,
+                        linewidths=1,
                         facecolors=colors_sorted, edgecolors=colors_sorted)
 
     return pc
