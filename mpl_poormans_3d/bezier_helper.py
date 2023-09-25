@@ -43,7 +43,7 @@ def bezier2mpl(curve, no_start_node=True):
     if no_start_node:
         return verts[:, 1:], codes
     else:
-        return [verts], [MPath.MOVETO] + codes
+        return verts, [MPath.MOVETO] + codes
 
 
 def mpl2bezier(mpl_path, transform=None):
@@ -168,13 +168,8 @@ def path_to_simple_3d(p, error,
         # long lines are divided for better z-ordering.
         cc = refine(cc, np.power(displacement, 2).sum()**.5 * refine_factor)
 
-
-        # cc = np.array([ccx, ccy]).T
-        # ax.plot(cc[:, 0], cc[:, 1], "o")
-
         cc1 = cc + np.array(displacement0)
         cc2 = cc + np.array(displacement)
-        # ax.plot(cc2[:, 0], cc2[:, 1], "ko", zorder=100)
 
         pp = lines_to_rects(cc1, cc2)
         rects.append(pp)
