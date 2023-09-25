@@ -37,33 +37,34 @@ t.set_path_effects([
 ax = axs[1]
 frequency = [120,120,380,240,200]
 pie = ax.pie(frequency,
-       startangle=90,
-       counterclock=False,
-       wedgeprops=dict(width=0.3)
-       )
+             startangle=90,
+             counterclock=False,
+             wedgeprops=dict(width=0.3),
+             explode=[0, 0, 0, .1, 0],
+             )
 
-ls = LightSource(azdeg=105)
+# We set aspect to .5 so that the pi looks tilted.
+ax.set_aspect(0.5)
+
+ls = LightSource(azdeg=35)
 
 patch_list = pie[0]
 
 # The 3d faces of all patches need to be collected and sorted.
 # ArtistListWithPoormans3d does this.
+height = np.array([0, 40])
+kw = dict(fraction=0.3, direction=-1)
+kw_face = dict(fraction=0.3)
+
 al = ArtistListWithPoormans3d(patch_list,
-                              ls, (20, 10), displacement0=(10, 5),
-                              fraction=0.3)
+                              ls, 0.5* height, displacement0=0,
+                              **kw)
 
 ax.add_artist(al)
 
 for patch in patch_list:
     patch.set_path_effects([
-        Poormans3dFace(ls, (10, 5), fraction=0.3),
+        Poormans3dFace(ls, 0.5*height, **kw_face),
     ])
-
-# add another depth to the 3rd slice.
-patch = patch_list[3]
-patch.set_path_effects([
-    Poormans3d(ls, (10, 5), displacement0=(4, 2), fraction=0.3),
-    Poormans3dFace(ls, (4, 2), fraction=0.3),
-])
 
 plt.show()
