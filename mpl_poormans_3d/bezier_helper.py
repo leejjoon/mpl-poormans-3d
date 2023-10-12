@@ -1,3 +1,4 @@
+import warnings
 import bezier
 import numpy as np
 import matplotlib.colors as mcolors
@@ -95,14 +96,17 @@ def mpl2bezier(mpl_path, transform=None):
         return beziers[:-1]
 
 
-def refine(cc, thresh):
+def refine(cc, thresh, min_refine=100):
+    if thresh == 0:
+        return cc
+
     new_cc = [cc[0]]
     for i in range(len(cc) - 1):
         p0 = cc[i]
         p1 = cc[i+1]
         d = ((p0 - p1)**2).sum()**.5
         if d > thresh:
-            n = int(d // thresh+1)
+            n = min(int(d // thresh + 1), min_refine) # number of segmentation
             w = np.linspace(1, 0, max(2, n))[1:].reshape((-1, 1))
             pp = p0*w + p1*(1-w)
             new_cc.append(pp)
@@ -133,7 +137,10 @@ def lines_to_normals(lines):
         nn.append(n)
 
     nn = np.array(nn)
-    nn = nn / ((nn**2).sum(axis=1)**.5)[:, np.newaxis]
+    with warnings.catch_warnings():
+        # warnings.filterwarnings('ignore', r'RuntimeWarning: invalid value encountered')
+        warnings.filterwarnings('ignore', r'invalid value encountered in divide')
+        nn = nn / ((nn**2).sum(axis=1)**.5)[:, np.newaxis]
     return nn  # , np.array(dd)
 
 def get_overlay_colors(ls, normals, facecolor, fraction=1.):
@@ -145,9 +152,63 @@ def get_overlay_colors(ls, normals, facecolor, fraction=1.):
 
     return rgb_overlayed
 
+class PathToSimple3D:
+    def __init__(self, p, error, refine_length):
+        """
+        regine_length : controls the minimum length for the line sementation.
+                        We divide long straight lines into segments for better z-ordering.
+        """
+        # FIXME Check if we can use Path.to_polygons instead for linearizaion.
+        bb = mpl2bezier(p)
+
+        self.cc_list = []
+        for b in bb:
+            # b = bb[1]
+            cc = linearize_bezier_list(b, error)
+
+            # FIXME use np.hypot
+            cc = refine(cc, refine_length)
+
+            self.cc_list.append(cc)
+
+    def get_rects(self, displacement, displacement0=0, distance_mode=np.mean):
+        """
+
+        returns:
+
+        rects : list of rectangles
+        normals : list of normal vectors
+        projected : list of distances (for z-ordering)
+        """
+        rects = []
+        normals = []
+        projected = []
+
+        for cc in self.cc_list:
+
+            nn = lines_to_normals(cc)
+            nnn = np.concatenate([nn, np.zeros(shape=(len(nn), 1),
+                                               dtype=nn.dtype)], axis=-1)
+            normals.append(nnn)
+
+            oo1 = np.dot(cc, displacement)
+            oo2 = np.dot(cc, displacement)
+            oo = distance_mode([oo1[:-1], oo1[1:], oo2[:-1], oo2[1:]], axis=0)
+            projected.append(oo)
+
+            cc1 = cc + np.array(displacement0)
+            cc2 = cc + np.array(displacement)
+
+            pp = lines_to_rects(cc1, cc2)
+            rects.append(pp)
+
+        return rects, normals, projected
+
+
 def path_to_simple_3d(p, error,
                       displacement,
                       displacement0 = 0,
+                      distance_mode=np.mean,
                       refine_factor=0.5):
     """
     ls: lightsource
@@ -156,35 +217,10 @@ def path_to_simple_3d(p, error,
     # displacement = [-0.05, -0.03]
     # error = 0.001
     # rr = []
-    rects = []
-    normals = []
-    projected = []
-    bb = mpl2bezier(p)
+    refine_length = np.power(displacement, 2).sum()**.5 * refine_factor
 
-    for b in bb:
-        # b = bb[1]
-        cc = linearize_bezier_list(b, error)
-
-        # long lines are divided for better z-ordering.
-        cc = refine(cc, np.power(displacement, 2).sum()**.5 * refine_factor)
-
-        cc1 = cc + np.array(displacement0)
-        cc2 = cc + np.array(displacement)
-
-        pp = lines_to_rects(cc1, cc2)
-        rects.append(pp)
-
-        nn = lines_to_normals(cc1)
-        nnn = np.concatenate([nn, np.zeros(shape=(len(nn), 1),
-                                           dtype=nn.dtype)], axis=-1)
-        normals.append(nnn)
-
-        # mean
-        oo1 = np.dot(cc1, displacement)
-        oo2 = np.dot(cc2, displacement)
-        # oo = np.sum([oo1[:-1], oo1[1:], oo2[:-1], oo2[1:]], axis=0)
-        oo = np.mean([oo1[:-1], oo1[1:], oo2[:-1], oo2[1:]], axis=0)
-        # oo = np.dot(cc[:-1], displacement)
-        projected.append(oo)
+    to3d = PathToSimple3D(p, error, refine_length=refine_length)
+    rects, normals, projected = to3d.get_rects(displacement, displacement0=displacement0,
+                                               distance_mode=distance_mode)
 
     return rects, normals, projected

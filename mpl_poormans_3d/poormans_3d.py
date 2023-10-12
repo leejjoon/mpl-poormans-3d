@@ -4,6 +4,7 @@ import numpy as np
 
 import matplotlib.colors as mcolors
 import matplotlib.transforms as mtransforms
+from matplotlib.path import Path as MPath
 
 from matplotlib.text import TextPath
 from matplotlib.patches import Polygon
@@ -199,7 +200,8 @@ def get_3d(facecolor, p, tr, ls,
            displacement, displacement0=0, error=None,
            direction=1,
            fraction=0.5,
-           refine_factor=10):
+           refine_factor=10,
+           distance_mode=np.mean):
 
     projected_dists, polys, colors = _get_3d(facecolor, p, tr, ls,
                                              displacement,
@@ -207,7 +209,8 @@ def get_3d(facecolor, p, tr, ls,
                                              error=error,
                                              direction=direction,
                                              fraction=fraction,
-                                             refine_factor=refine_factor)
+                                             refine_factor=refine_factor,
+                                             distance_mode=distance_mode)
 
     poly_sorted = [p1 for _, _, p1 in sorted(zip(projected_dists,
                                                  range(len(polys)), polys))]
@@ -225,11 +228,102 @@ def get_3d(facecolor, p, tr, ls,
     return pc
 
 
+from .bezier_helper import PathToSimple3D
+
+class Poormans3dHelper:
+    def __init__(self, p, error, refine_length):
+        self.p = p
+        self.tr = mtransforms.IdentityTransform()
+
+        error = error if error else 0.1
+        self.to3d = PathToSimple3D(p, error, refine_length)
+
+    def get_side_polys(self, ls, facecolor,
+                       displacement, displacement0=0,
+                       direction=1,
+                       fraction=0.5,
+                       distance_mode=np.mean):
+
+        rects, normals, projected = self.to3d.get_rects(displacement,
+                                                        displacement0=displacement0,
+                                                        distance_mode=distance_mode)
+
+        facecolor = np.clip(mcolors.to_rgb(facecolor), 0.2, 0.8)
+        projected_dists = []  # projected distance along the displacement vector
+        polys = []
+        colors = []
+        for rr, nn, pp in zip(rects, normals, projected):
+            msk = np.all(np.isfinite(nn), axis=-1)
+            # sometimes we have zero length segment which results in nn of NaN. We
+            # exclude these segments.
+            rgb2 = get_overlay_colors(ls, nn, facecolor, fraction=fraction)
+            polys.extend([_ for _, m in zip(rr, msk) if m])
+            colors.extend(rgb2[msk])
+            projected_dists.extend(direction * pp[msk])
+
+        return projected_dists, polys, colors
+
+    def get_side_poly_collection(self, ls, facecolor,
+                                 displacement, displacement0=0,
+                                 direction=1,
+                                 fraction=0.5,
+                                 distance_mode=np.mean):
+        """
+        ls : lightsource
+        """
+
+        projected_dists, polys, colors = self.get_side_polys(
+            ls, facecolor,
+            displacement, displacement0=displacement0,
+            direction=direction,
+            fraction=fraction,
+            distance_mode=distance_mode
+        )
+
+        poly_sorted = [p1 for _, _, p1 in sorted(zip(projected_dists,
+                                                     range(len(polys)), polys))]
+        colors_sorted = [c1 for _, _, c1 in sorted(zip(projected_dists,
+                                                       range(len(polys)), colors))]
+
+        # we need to have lines stroked, otherwise you will see boundaries between
+        # polygons. Another approach would be draw a separate lines for the
+        # touching boundaries between polygons.
+        pc = PolyCollection(poly_sorted, closed=True, transform=self.tr,
+                            linewidths=1,
+                            facecolors=colors_sorted, edgecolors=colors_sorted)
+
+        return pc
+
+    def get_face(self, ls, facecolor,
+                 displacement=0,
+                 fraction=0.5):
+        """
+
+        ls : lightsource
+        """
+
+        displacement = np.array(displacement)
+
+        face_displacement = np.array(displacement)
+
+        tp2 = MPath(self.p.vertices + face_displacement, codes=self.p.codes)
+
+        intensity = (ls.shade_normals(np.array([0, 0, 1])) - 0.5) * fraction + 0.5
+        if facecolor is not None:
+            rgb = np.clip(mcolors.to_rgb(facecolor), 0.1, 0.9)
+            rgb2 = ls.blend_overlay(rgb, intensity)
+        else:
+            rgb2 = None
+
+        return tp2, rgb2
+
+
 def _get_3d(facecolor, p, tr, ls,
-           displacement, displacement0=0, error=None,
-           direction=1,
-           fraction=0.5,
-           refine_factor=10):
+            displacement, displacement0=0, error=None,
+            direction=1,
+            fraction=0.5,
+            refine_factor=10,
+            distance_mode=np.mean):
 
     if error is None:
         error = 0.1
@@ -237,22 +331,14 @@ def _get_3d(facecolor, p, tr, ls,
     displacement = np.array(displacement)
 
     tp = p.transformed(tr)
+    refine_length = np.power(displacement, 2).sum()**.5 * refine_factor
 
-    rects, normals, projected = path_to_simple_3d(tp, error,
-                                                  displacement,
-                                                  displacement0=displacement0,
-                                                  refine_factor=refine_factor)
-
-    facecolor = np.clip(mcolors.to_rgb(facecolor), 0.2, 0.8)
-    projected_dists = []  # projected distance along the displacement vector
-    polys = []
-    colors = []
-    for rr, nn, pp in zip(rects, normals, projected):
-        rgb2 = get_overlay_colors(ls, nn, facecolor, fraction=fraction)
-        polys.extend(rr)
-        colors.extend(rgb2)
-        # projected_dists.extend([direction * pp] * len(rr))
-        projected_dists.extend(direction * pp)
+    to3d = Poormans3dHelper(tp, error, refine_length=refine_length)
+    projected_dists, polys, colors = to3d.get_side_polys(ls, facecolor, displacement,
+                                                         displacement0=displacement0,
+                                                         direction=direction,
+                                                         fraction=fraction,
+                                                         distance_mode=distance_mode)
 
     return projected_dists, polys, colors
 
