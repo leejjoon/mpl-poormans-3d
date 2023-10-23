@@ -1,10 +1,13 @@
 import warnings
-import bezier
+
+from matplotlib.transforms import Affine2D
+from . import bezier_lite as bezier
+from .bezier_lite.hazmat_geometric_intersection import linearization_error
 import numpy as np
 import matplotlib.colors as mcolors
 from matplotlib.patches import Polygon
 
-linearization_error = bezier.hazmat.geometric_intersection.linearization_error
+# linearization_error = bezier_lite.hazmat_geometric_intersection.linearization_error
 
 def linearize0(curve, e):
     if linearization_error(curve.nodes) > e:
