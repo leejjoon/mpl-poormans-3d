@@ -156,12 +156,23 @@ def get_overlay_colors(ls, normals, facecolor, fraction=1.):
     return rgb_overlayed
 
 class PathToSimple3D:
-    def __init__(self, p, error, refine_length):
+    def __init__(self, p, error, refine_length, recenter=None):
         """
         regine_length : controls the minimum length for the line sementation.
                         We divide long straight lines into segments for better z-ordering.
+        recenter : when set, it keeps a recentered path, so that scling works. Later,
+                   the path will be tranlsated to the expected position.
         """
         # FIXME Check if we can use Path.to_polygons instead for linearizaion.
+
+        if recenter is None:
+            self.recenter = None
+        else:
+            cx, cy = self.recenter = recenter
+            p = Affine2D().translate(-cx, -cy).transform_path(p)
+
+        self.p = p
+
         bb = mpl2bezier(p)
 
         self.cc_list = []
@@ -174,13 +185,18 @@ class PathToSimple3D:
 
             self.cc_list.append(cc)
 
-    def get_rects(self, displacement, displacement0=0, distance_mode=np.mean):
+
+
+    def get_rects(self, displacement, displacement0=0,
+                  # scale0=None, scale1=None,
+                  affine0=None, affine1=None,
+                  distance_mode=np.mean):
         """
 
         returns:
 
         rects : list of rectangles
-        normals : list of normal vectors
+
         projected : list of distances (for z-ordering)
         """
         rects = []
@@ -194,18 +210,44 @@ class PathToSimple3D:
                                                dtype=nn.dtype)], axis=-1)
             normals.append(nnn)
 
+            oo0 = np.dot(cc, displacement)
             oo1 = np.dot(cc, displacement)
-            oo2 = np.dot(cc, displacement)
-            oo = distance_mode([oo1[:-1], oo1[1:], oo2[:-1], oo2[1:]], axis=0)
+            oo = distance_mode([oo0[:-1], oo0[1:], oo1[:-1], oo1[1:]], axis=0)
             projected.append(oo)
 
-            cc1 = cc + np.array(displacement0)
-            cc2 = cc + np.array(displacement)
+            cc0 = (cc if affine0 is None else affine0.transform(cc)) + np.array(displacement0)
+            cc1 = (cc if affine1 is None else affine1.transform(cc)) + np.array(displacement)
+            if self.recenter is not None:
+                cc0 += self.recenter
+                cc1 += self.recenter
 
-            pp = lines_to_rects(cc1, cc2)
+            pp = lines_to_rects(cc0, cc1)
             rects.append(pp)
 
         return rects, normals, projected
+
+    def get_face(self,
+                 displacement=0,
+                 affine=None):
+        """
+
+        ls : lightsource
+        """
+
+        displacement = np.array(displacement)
+
+        if self.recenter is not None:
+            face_displacement = np.array(displacement) + self.recenter
+        else:
+            face_displacement = np.array(displacement)
+
+        if affine is None:
+            tp2 = MPath(self.p.vertices + face_displacement, codes=self.p.codes)
+        else:
+            tp2 = MPath(affine.transform(self.p.vertices) + face_displacement, codes=self.p.codes)
+
+        return tp2
+
 
 
 def path_to_simple_3d(p, error,

@@ -1,7 +1,9 @@
+import itertools
 from sys import displayhook
 import numpy as np
 from matplotlib.path import Path
 from matplotlib.transforms import Affine2D, IdentityTransform
+import matplotlib.colors as mcolors
 from mpl_visual_context.patheffects_base import ChainablePathEffect
 
 from .text_path import TextPath
@@ -21,7 +23,7 @@ class PrismBase:
                  segment_params=None,
                  distance_mode=np.max):
         """
-        segment_params : ax, max_height, colors, facecolor
+        segment_params : ax, max_height, colors, facecolor. If colors is None, rgbFace will be used and the max_height parameter will be ignored.
         """
         self.lightsource = lightsource
         self.error = error
@@ -40,8 +42,6 @@ class PrismBase:
         # return surface, surface_affine
 
     def _get(self, tpath, affine):
-        if tpath != Path.unit_rectangle():
-            raise RuntimeError("path much be a unit_rect")
 
         tpp = affine.transform_path(tpath)
         # we get the height and the width of the bar
@@ -70,13 +70,35 @@ class PrismBase:
 
     def draw_path(self, renderer, gc, tpath, affine, rgbFace):
 
+        if tpath != Path.unit_rectangle():
+            raise RuntimeError("path much be a unit_rect")
+
+        # The unit_rectangle has (0, 0) at botton left and (1, 1) at top right.
+        # We change the path and affine so that the surface has a center at 0,
+        # 0 and that corresponds to the bottom center of the bar.
+        tpath  = Affine2D().translate(-0.5, 0).transform_path(tpath)
+        affine = Affine2D().translate(0.5, 0) + affine
+
+        rgbFace0 = rgbFace
         if self.segment_params:
-            ax, max_height, colors, rgbFace = self.segment_params
+            ax, max_height, colors, rgbFace_ = self.segment_params[:4]
+            if len(self.segment_params) == 5:
+                affines = self.segment_params[-1]
+            else:
+                affines = itertools.repeat((None, None))
+
+            rgbFace = rgbFace if rgbFace_ is None else rgbFace_
+            # if colors is None:
+            #     colors = itertools.repeat([rgbFace])
+            #     n_segment = 1
+            # else:
+            #     n_segment = len(colors)
+
             height_in_data = self._get_height_in_data(ax.transData.inverted(),
                                                       tpath, affine)
 
-            # max_height = 20
             n_segment = len(colors)
+            # max_height = 20
             max_n = height_in_data / max_height * n_segment
 
             div = np.floor(max_n)
@@ -84,10 +106,9 @@ class PrismBase:
             v2 = np.concatenate([v1[:-1] + 1, [max_n]])
 
             # iter_segment = zip(1-v2/max_n, 1-v1/max_n, colors)
-            iter_segment = zip(v1/max_n, v2/max_n, colors)
+            iter_segment = zip(v1/max_n, v2/max_n, colors, affines)
         else:
-            iter_segment = [(0, 1, rgbFace)]
-
+            iter_segment = [(0, 1, rgbFace, (None, None))]
 
         surface, affine, height_vector = self._get(tpath, affine)
         # set clip on the col using gc information
@@ -98,16 +119,25 @@ class PrismBase:
         # refine_length = np.power(height_vector, 2).sum()**.5 * self.refine_factor
         # FIXME Not sure if refine_length really matter
         refine_length = 10
+        center = affine.transform_point([0, 0])
+        to3d = Poormans3dHelper(tsurface, self.error, refine_length=refine_length,
+                                recenter=center)
 
-        to3d = Poormans3dHelper(tsurface, self.error, refine_length=refine_length)
+        # print("##", next(iter(iter_segment)))
+        for d0, d1, c, (a0, a1) in iter_segment:
+            # d1, d2 : distances
+            # c : color
+            # a0, a1 : affine transfomrs. can be None.
+            c = rgbFace0 if c is None else c
 
-        for d1, d2, c in iter_segment:
             col = to3d.get_side_poly_collection(
                 self.lightsource, c,
-                height_vector*d2,
-                displacement0=height_vector*d1,
+                height_vector*d1,
+                displacement0=height_vector*d0,
                 direction=self.direction,
                 fraction=self.fraction,
+                # scale0=1, scale1=0.5,
+                affine0=a0, affine1=a1,
                 distance_mode=self.distance_mode)
 
             if clip_path or clip_rect:
@@ -119,21 +149,40 @@ class PrismBase:
                                         # value does not matter unless size is set.
             col.draw(renderer)
 
-        if rgbFace is None:
-            rgbFace = c
+            tp2, rgb2 = to3d.get_face(self.lightsource, c,
+                                      displacement=height_vector*d1,
+                                      affine=a1,
+                                      # scale=scale,
+                                      fraction=self.fraction)
+            # tp2, rgb2 = get_3d_face(rgbFace, surface, affine, self.lightsource,
+            #                         displacement=[0, 0],
+            #                         fraction=self.fraction)
+            # We need the stroke of the face to hide some of the stoke from get_3d.
+            gc.set_linewidth(1)
+            gc.set_foreground(rgb2)
+            renderer.draw_path(gc, tp2, tr, rgb2)
 
-        tp2, rgb2 = to3d.get_face(self.lightsource, rgbFace,
-                                  displacement=height_vector,
-                                  fraction=self.fraction)
-        # tp2, rgb2 = get_3d_face(rgbFace, surface, affine, self.lightsource,
-        #                         displacement=[0, 0],
-        #                         fraction=self.fraction)
-        # We need the stroke of the face to hide some of the stoke from get_3d.
-        gc.set_linewidth(1)
-        gc.set_foreground(rgb2)
-        renderer.draw_path(gc, tp2, tr, rgb2)
-        # import matplotlib.colors as mcolors
-        # renderer.draw_path(gc, tp2, tr, mcolors.to_rgb(rgbFace))
+        # if rgbFace is None:
+        #     rgbFace = c
+
+        # scale = 0.5
+        # if not scale:
+        #     return
+
+        # tp2, rgb2 = to3d.get_face(self.lightsource, rgbFace,
+        #                           displacement=height_vector,
+        #                           affine=a1,
+        #                           # scale=scale,
+        #                           fraction=self.fraction)
+        # # tp2, rgb2 = get_3d_face(rgbFace, surface, affine, self.lightsource,
+        # #                         displacement=[0, 0],
+        # #                         fraction=self.fraction)
+        # # We need the stroke of the face to hide some of the stoke from get_3d.
+        # gc.set_linewidth(1)
+        # gc.set_foreground(rgb2)
+        # renderer.draw_path(gc, tp2, tr, rgb2)
+        # # import matplotlib.colors as mcolors
+        # # renderer.draw_path(gc, tp2, tr, mcolors.to_rgb(rgbFace))
 
     class FacePath(ChainablePathEffect):
         def __init__(self, prism, displacement):
@@ -141,16 +190,49 @@ class PrismBase:
             self.displacement = displacement
 
         def _convert(self, renderer, gc, tpath, affine, rgbFace=None):
-            surface, affine, height_vector = self.prism._get(tpath, affine)
+
+            prism = self.prism
+            if prism.segment_params:
+                ax, max_height, colors, rgbFace = prism.segment_params
+                height_in_data = prism._get_height_in_data(ax.transData.inverted(),
+                                                           tpath, affine)
+
+                n_segment = len(colors)
+                max_n = height_in_data / max_height * n_segment
+
+                div = int(np.floor(max_n))
+                rgbFace = mcolors.to_rgb(colors[div])
+
+            # The unit_rectangle has (0, 0) at botton left and (1, 1) at top right.
+            # We change the path and affine so that the surface has a center at 0,
+            # 0 and that corresponds to the bottom center of the bar.
+            tpath  = Affine2D().translate(-0.5, 0).transform_path(tpath)
+            affine = Affine2D().translate(0.5, 0) + affine
+
+            surface, affine, height_vector = prism._get(tpath, affine)
+
             tsurface = affine.transform_path(surface)
+            # refine_length = np.power(height_vector, 2).sum()**.5 * self.refine_factor
+            # FIXME Not sure if refine_length really matter
+            refine_length = 10
 
-            tp = Path(tsurface.vertices + height_vector*self.displacement,
-                      codes=tsurface.codes)
+            to3d = Poormans3dHelper(tsurface, prism.error, refine_length=refine_length)
 
-            # print(surface.vertices)
             tr = IdentityTransform()
 
-            return renderer, gc, tp, tr, rgbFace
+            tp2, rgb2 = to3d.get_face(prism.lightsource, rgbFace,
+                                      displacement=height_vector*self.displacement,
+                                      fraction=prism.fraction)
+
+            # We need the stroke of the face to hide some of the stoke from get_3d.
+            gc2 = renderer.new_gc()  # Don't modify gc, but a copy!
+            gc2.copy_properties(gc)
+
+            gc2.set_linewidth(1)
+            if rgbFace:
+                gc2.set_foreground(rgb2)
+
+            return renderer, gc2, tp2, tr, rgb2
 
     def get_pe_face(self, displacement=0):
         pe_face = self.FacePath(self, displacement)
@@ -183,12 +265,24 @@ class BarToPrism(PrismBase):
         bar_ratio = width / height
 
         surface_affine = (Affine2D().scale(self.scale).
-                          rotate_deg(self.rotate_deg).translate(1, 0)
+                          rotate_deg(self.rotate_deg)
                           .scale(0.5,
                                  0.5*bar_ratio*self.ratio)
                           )
 
         return self._surface, surface_affine
+
+    # def _get_unit_surface(self, width, height):
+    #     # el = Path.unit_circle()
+    #     bar_ratio = width / height
+
+    #     surface_affine = (Affine2D().scale(self.scale).
+    #                       rotate_deg(self.rotate_deg).translate(1, 0)
+    #                       .scale(0.5,
+    #                              0.5*bar_ratio*self.ratio)
+    #                       ).scale(0.2)
+
+    #     return self._surface, surface_affine
 
 class BarToCylinder(PrismBase):
     def __init__(self, lightsource, ratio=0.4, scale=1, **kwargs):
@@ -204,7 +298,6 @@ class BarToCylinder(PrismBase):
 
         ellipse_affine = (Affine2D()
                           .scale(self.scale)
-                          .translate(1, 0)
                           .scale(0.5,
                                  0.5*bar_ratio*self.ratio))
 
@@ -232,7 +325,7 @@ class BarToCharPrism(PrismBase):
 
         surface_affine = (Affine2D().scale(self.scale/100)
                           .rotate_deg(self.rotate_deg)
-                          .translate(0.5, 0.)
+                          # .translate(0.5, 0.)
                           .scale(1,
                                  bar_ratio*self.ratio)
                           )

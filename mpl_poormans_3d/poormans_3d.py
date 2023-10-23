@@ -231,22 +231,27 @@ def get_3d(facecolor, p, tr, ls,
 from .bezier_helper import PathToSimple3D
 
 class Poormans3dHelper:
-    def __init__(self, p, error, refine_length):
+    def __init__(self, p, error, refine_length, recenter=None):
         self.p = p
         self.tr = mtransforms.IdentityTransform()
 
         error = error if error else 0.1
-        self.to3d = PathToSimple3D(p, error, refine_length)
+        self.to3d = PathToSimple3D(p, error, refine_length, recenter=recenter)
 
     def get_side_polys(self, ls, facecolor,
                        displacement, displacement0=0,
                        direction=1,
                        fraction=0.5,
+                       # scale0=None, scale1=None,
+                       affine0=None, affine1=None,
                        distance_mode=np.mean):
 
         rects, normals, projected = self.to3d.get_rects(displacement,
                                                         displacement0=displacement0,
-                                                        distance_mode=distance_mode)
+                                                        distance_mode=distance_mode,
+                                                        affine0=affine0, affine1=affine1
+                                                        # scale0=scale0, scale1=scale1
+                                                        )
 
         facecolor = np.clip(mcolors.to_rgb(facecolor), 0.2, 0.8)
         projected_dists = []  # projected distance along the displacement vector
@@ -267,6 +272,8 @@ class Poormans3dHelper:
                                  displacement, displacement0=0,
                                  direction=1,
                                  fraction=0.5,
+                                 # scale0=None, scale1=None,
+                                 affine0=None, affine1=None,
                                  distance_mode=np.mean):
         """
         ls : lightsource
@@ -277,6 +284,8 @@ class Poormans3dHelper:
             displacement, displacement0=displacement0,
             direction=direction,
             fraction=fraction,
+            # scale0=scale0, scale1=scale1,
+            affine0=affine0, affine1=affine1,
             distance_mode=distance_mode
         )
 
@@ -296,17 +305,24 @@ class Poormans3dHelper:
 
     def get_face(self, ls, facecolor,
                  displacement=0,
+                 affine=None,
                  fraction=0.5):
         """
 
         ls : lightsource
         """
+        # self.to3d.get_face(displacement=displacement,
+        #                    scale=scale)
+        # displacement = np.array(displacement)
 
-        displacement = np.array(displacement)
+        # face_displacement = np.array(displacement)
 
-        face_displacement = np.array(displacement)
+        # if scale is None:
+        #     tp2 = MPath(self.p.vertices + face_displacement, codes=self.p.codes)
+        # else:
+        #     tp2 = MPath(self.p.vertices*scale + face_displacement, codes=self.p.codes)
 
-        tp2 = MPath(self.p.vertices + face_displacement, codes=self.p.codes)
+        tp2 = self.to3d.get_face(displacement=displacement, affine=affine)
 
         intensity = (ls.shade_normals(np.array([0, 0, 1])) - 0.5) * fraction + 0.5
         if facecolor is not None:
