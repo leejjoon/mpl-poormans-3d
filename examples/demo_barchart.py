@@ -4,7 +4,6 @@ Demo with bar chart
 ====================
 """
 
-import bezier
 import numpy as np
 
 import matplotlib.pyplot as plt
