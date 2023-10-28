@@ -91,10 +91,14 @@ class Poormans3dFace(ChainablePathEffect):
         tp2, rgb2 = get_3d_face(facecolor, tp, tr, self.lightsource,
                                 displacement=displacement*dpi_cor,
                                 fraction=self.fraction)
+
         # We need the stroke of the face to hide some of the stoke from get_3d.
-        gc.set_linewidth(1)
-        gc.set_foreground(rgb2)
-        return renderer, gc, tp2, tr, rgb2
+        if gc.get_linewidth() == 0:
+            gc.set_linewidth(1)
+        if rgb2 is not None:
+            gc.set_foreground(rgb2)
+
+        return renderer, gc, affine.inverted().transform_path(tp2), affine, rgb2
 
 
 from matplotlib.artist import Artist
