@@ -8,10 +8,11 @@
 # See https://github.com/pypa/setuptools/issues/1724#issuecomment-627241822
 
 __all__ = ["Poormans3d", "Poormans3dFace",
-           "BarToPrism", "BarToCylinder"]
+           "BarToPrism", "BarToCylinder",
+           "BarToCharPrism", "BarToPathPrism"]
 
 from ._version import __version__
 
 from .poormans_3d import Poormans3d, Poormans3dFace
-from .prism_3d import BarToPrism, BarToCylinder
+from .prism_3d import BarToPrism, BarToCylinder, BarToCharPrism, BarToPathPrism
 
