@@ -1,7 +1,7 @@
 import warnings
 
 from matplotlib.transforms import Affine2D
-from . import bezier_lite as bezier
+from .bezier_lite import Curve
 from .bezier_lite.hazmat_geometric_intersection import linearization_error
 import numpy as np
 import matplotlib.colors as mcolors
@@ -80,7 +80,7 @@ def mpl2bezier(mpl_path, transform=None):
             verts = nodes + [beziers[-1][0].nodes[:, 0]]
             # skip if last node is already equal to the first node.
             if np.any(verts[0] - verts[-1]):
-                p = bezier.Curve(np.array(verts).T, degree=1)
+                p = Curve(np.array(verts).T, degree=1)
                 beziers[-1].append(p)
             beziers.append([])
             nodes = []
@@ -89,7 +89,7 @@ def mpl2bezier(mpl_path, transform=None):
         else:
             raise ValueError()
 
-        p = bezier.Curve(np.array(verts).T, degree=degree)
+        p = Curve(np.array(verts).T, degree=degree)
         beziers[-1].append(p)
         nodes = [p.nodes[:, -1]]
 

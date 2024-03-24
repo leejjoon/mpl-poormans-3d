@@ -27,7 +27,10 @@ from matplotlib.colors import LightSource
 ls = LightSource(azdeg=105)
 ls2 = LightSource(azdeg=180 + 105)
 
-patch_list_bar = [p for p in ax.patches]
+from itertools import chain
+# patch_list_bar = [p for p in ax.patches][:6] # seabon creates 8 patches. We only need first 6.
+patch_list_bar = list(chain(*ax.containers))
+
 for patch in patch_list_bar:
     patch.set_path_effects([
         Poormans3d(ls, (10, 5),
