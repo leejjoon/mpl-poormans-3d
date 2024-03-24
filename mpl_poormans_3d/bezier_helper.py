@@ -7,8 +7,10 @@ from matplotlib.transforms import Affine2D
 from matplotlib.patches import Polygon
 from matplotlib.path import Path as MPath
 
-from .bezier_lite import Curve
-from .bezier_lite.hazmat_geometric_intersection import linearization_error
+# from .bezier_lite import Curve
+# from .bezier_lite.hazmat_geometric_intersection import linearization_error
+from bezier import Curve
+from bezier.hazmat.geometric_intersection import linearization_error
 
 # linearization_error = bezier_lite.hazmat_geometric_intersection.linearization_error
 
