@@ -1,11 +1,14 @@
 import warnings
 
+import numpy as np
+
+import matplotlib.colors as mcolors
 from matplotlib.transforms import Affine2D
+from matplotlib.patches import Polygon
+from matplotlib.path import Path as MPath
+
 from .bezier_lite import Curve
 from .bezier_lite.hazmat_geometric_intersection import linearization_error
-import numpy as np
-import matplotlib.colors as mcolors
-from matplotlib.patches import Polygon
 
 # linearization_error = bezier_lite.hazmat_geometric_intersection.linearization_error
 
@@ -29,7 +32,6 @@ def linearize_bezier_list(bl, e):
     verts = np.vstack(verts)
     return verts
 
-from matplotlib.path import Path as MPath
 
 def bezier2mpl(curve, no_start_node=True):
     if curve.degree == 3:
@@ -130,6 +132,7 @@ def lines_to_rects(lines1, lines2):
 
     return pp
 
+
 def lines_to_normals(lines):
     nn = []
     # dd = []
@@ -146,6 +149,7 @@ def lines_to_normals(lines):
         nn = nn / ((nn**2).sum(axis=1)**.5)[:, np.newaxis]
     return nn  # , np.array(dd)
 
+
 def get_overlay_colors(ls, normals, facecolor, fraction=1.):
     intensity = (ls.shade_normals(normals).reshape((-1, 1)) - 0.5) * fraction + 0.5
     rgb = np.zeros((len(normals), 3))
@@ -154,6 +158,7 @@ def get_overlay_colors(ls, normals, facecolor, fraction=1.):
     rgb_overlayed = ls.blend_overlay(rgb, intensity)
 
     return rgb_overlayed
+
 
 class PathToSimple3D:
     def __init__(self, p, error, refine_length, recenter=None):
@@ -247,7 +252,6 @@ class PathToSimple3D:
             tp2 = MPath(affine.transform(self.p.vertices) + face_displacement, codes=self.p.codes)
 
         return tp2
-
 
 
 def path_to_simple_3d(p, error,

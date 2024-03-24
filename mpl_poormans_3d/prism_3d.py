@@ -1,6 +1,7 @@
 import itertools
 from sys import displayhook
 import numpy as np
+
 from matplotlib.path import Path
 from matplotlib.transforms import Affine2D, IdentityTransform
 import matplotlib.colors as mcolors
@@ -8,9 +9,13 @@ from mpl_visual_context.patheffects_base import ChainablePathEffect
 
 from .text_path import TextPath
 
-from .poormans_3d import (get_3d, get_3d_face,
-                          FigureDpi72, Poormans3d)
-from .poormans_3d import Poormans3dHelper
+from .poormans_3d_helper import FigureDpi72, Poormans3dHelper
+# from .poormans_3d import (
+#     # get_3d, get_3d_face,
+#     FigureDpi72,
+#     Poormans3dHelper,
+#     # Poormans3d
+# )
 
 # Not sure if the name of Prism make sense here.
 # https://en.wikipedia.org/wiki/Prism_(geometry)
